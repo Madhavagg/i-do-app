@@ -13,6 +13,7 @@ export interface Todo {
   dueDate?: string;
   category?: Category;
   createdAt: string;
+  position: number;
 }
 
 export const CATEGORIES: { value: Category; label: string }[] = [
