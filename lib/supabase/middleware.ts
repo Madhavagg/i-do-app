@@ -41,13 +41,19 @@ export async function updateSession(request: NextRequest) {
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
   const isCallbackRoute = request.nextUrl.pathname === '/auth/callback'
+  const isResetPasswordRoute = request.nextUrl.pathname === '/auth/reset-password'
 
   // Allow callback route without session
   if (isCallbackRoute) {
     return supabaseResponse
   }
 
-  // Redirect authenticated users away from auth pages
+  // Allow reset-password page even when authenticated (for password recovery flow)
+  if (isResetPasswordRoute) {
+    return supabaseResponse
+  }
+
+  // Redirect authenticated users away from other auth pages
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
