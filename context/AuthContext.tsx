@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   isLoading: boolean
+  isRecoveryMode: boolean
   signUp: (email: string, password: string) => Promise<AuthResult>
   signIn: (email: string, password: string) => Promise<AuthResult>
   signOut: () => Promise<void>
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false)
 
   const supabase = createClient()
 
@@ -44,10 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         setSession(session)
         setUser(session?.user ?? null)
         setIsLoading(false)
+
+        // Detect password recovery flow
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsRecoveryMode(true)
+        }
       }
     )
 
@@ -112,8 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      // Redirect directly to reset-password page
+      // Supabase will append hash fragments with tokens that the client will parse
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       })
 
       if (error) {
@@ -152,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         isLoading,
+        isRecoveryMode,
         signUp,
         signIn,
         signOut,
