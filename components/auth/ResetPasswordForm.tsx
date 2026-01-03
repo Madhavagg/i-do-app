@@ -2,42 +2,45 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
+import { validatePassword } from '@/types/auth'
 import PasswordInput from './PasswordInput'
+import PasswordStrength from './PasswordStrength'
 import AuthError from './AuthError'
 
-export default function LoginForm() {
-  const [email, setEmail] = useState('')
+export default function ResetPasswordForm() {
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const { signIn } = useAuth()
+  const { updatePassword } = useAuth()
   const router = useRouter()
+
+  const passwordValidation = validatePassword(password)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (!email.trim()) {
-      setError('Please enter your email address.')
+    if (!passwordValidation.isValid) {
+      setError('Please choose a stronger password.')
       return
     }
 
-    if (!password) {
-      setError('Please enter your password.')
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
       return
     }
 
     setIsLoading(true)
 
-    const result = await signIn(email, password)
+    const result = await updatePassword(password)
 
     if (result.success) {
       router.push('/')
       router.refresh()
     } else {
-      setError(result.error || 'Failed to sign in.')
+      setError(result.error || 'Failed to reset password.')
       setIsLoading(false)
     }
   }
@@ -47,36 +50,33 @@ export default function LoginForm() {
       {error && <AuthError message={error} />}
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-          Email
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          New Password
         </label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          autoComplete="email"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
-
-      <div>
-        <div className="flex justify-between items-center mb-1">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
-          </label>
-          <Link href="/auth/forgot-password" className="text-sm text-blue-500 hover:text-blue-600">
-            Forgot password?
-          </Link>
-        </div>
         <PasswordInput
           id="password"
           value={password}
           onChange={setPassword}
-          placeholder="Enter your password"
-          autoComplete="current-password"
+          placeholder="Create a new password"
+          autoComplete="new-password"
         />
+        {password && <PasswordStrength validation={passwordValidation} />}
+      </div>
+
+      <div>
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+          Confirm Password
+        </label>
+        <PasswordInput
+          id="confirmPassword"
+          value={confirmPassword}
+          onChange={setConfirmPassword}
+          placeholder="Confirm your new password"
+          autoComplete="new-password"
+        />
+        {confirmPassword && password !== confirmPassword && (
+          <p className="mt-1 text-xs text-red-600">Passwords do not match</p>
+        )}
       </div>
 
       <button
@@ -90,19 +90,12 @@ export default function LoginForm() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Signing in...
+            Resetting password...
           </span>
         ) : (
-          'Sign In'
+          'Reset Password'
         )}
       </button>
-
-      <p className="text-center text-sm text-gray-600">
-        Don&apos;t have an account?{' '}
-        <Link href="/auth/signup" className="text-blue-500 hover:text-blue-600 font-medium">
-          Sign up
-        </Link>
-      </p>
     </form>
   )
 }

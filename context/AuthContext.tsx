@@ -12,6 +12,8 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<AuthResult>
   signIn: (email: string, password: string) => Promise<AuthResult>
   signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<AuthResult>
+  updatePassword: (newPassword: string) => Promise<AuthResult>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -104,6 +106,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  const resetPassword = async (email: string): Promise<AuthResult> => {
+    if (!supabase) {
+      return { success: false, error: 'Authentication not configured.' }
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      })
+
+      if (error) {
+        return { success: false, error: mapAuthError(error.message) }
+      }
+
+      return { success: true }
+    } catch {
+      return { success: false, error: 'Something went wrong. Please try again.' }
+    }
+  }
+
+  const updatePassword = async (newPassword: string): Promise<AuthResult> => {
+    if (!supabase) {
+      return { success: false, error: 'Authentication not configured.' }
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+
+      if (error) {
+        return { success: false, error: mapAuthError(error.message) }
+      }
+
+      return { success: true }
+    } catch {
+      return { success: false, error: 'Something went wrong. Please try again.' }
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -113,6 +155,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signIn,
         signOut,
+        resetPassword,
+        updatePassword,
       }}
     >
       {children}
