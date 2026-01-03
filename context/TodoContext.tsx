@@ -294,12 +294,10 @@ export function TodoProvider({ children }: { children: ReactNode }) {
       result = [...result].sort((a, b) => a.position - b.position);
     }
 
-    // Always keep completed at bottom when sorted
-    if (sortBy !== 'manual') {
-      const active = result.filter(t => !t.completed);
-      const completed = result.filter(t => t.completed);
-      result = [...active, ...completed];
-    }
+    // Always keep completed at bottom
+    const active = result.filter(t => !t.completed);
+    const completed = result.filter(t => t.completed);
+    result = [...active, ...completed];
 
     return result;
   }, [todos, filter, categoryFilter, sortBy]);
