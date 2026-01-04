@@ -62,8 +62,8 @@ Generate a helpful description:`
     const description = completion.choices[0]?.message?.content?.trim() || ''
 
     // Flush Langfuse events (important for serverless)
-    if (isLangfuseConfigured() && 'flushAsync' in openai) {
-      await (openai as { flushAsync: () => Promise<void> }).flushAsync()
+    if (isLangfuseConfigured()) {
+      await (openai as unknown as { flushAsync: () => Promise<void> }).flushAsync()
     }
 
     return NextResponse.json({
