@@ -2,16 +2,48 @@
 
 import { useState } from 'react';
 import { useTodos } from '@/context/TodoContext';
+import { useAuth } from '@/context/AuthContext';
 import { Priority, Category, CATEGORIES, PRIORITIES } from '@/types/todo';
 
 export default function AddTodo() {
   const { addTodo } = useTodos();
+  const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('medium');
   const [category, setCategory] = useState<Category | ''>('');
   const [dueDate, setDueDate] = useState('');
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  const generateDescription = async () => {
+    if (!title.trim() || isGeneratingDescription) return;
+
+    setIsGeneratingDescription(true);
+    try {
+      const response = await fetch('/api/ai/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          category: category || undefined,
+          userId: user?.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.description) {
+        setDescription(data.description);
+      } else {
+        console.error('Failed to generate description:', data.error);
+      }
+    } catch (error) {
+      console.error('Error generating description:', error);
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,13 +97,39 @@ export default function AddTodo() {
 
       {isExpanded && (
         <div className="mt-4 space-y-4 animate-fadeIn">
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description (optional)"
-            rows={2}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-          />
+          <div className="relative">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description (optional)"
+              rows={2}
+              className="w-full px-4 py-2 pr-24 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            />
+            <button
+              type="button"
+              onClick={generateDescription}
+              disabled={!title.trim() || isGeneratingDescription}
+              className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-500 hover:text-blue-600 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+              title={!title.trim() ? 'Enter a task title first' : 'Generate description with AI'}
+            >
+              {isGeneratingDescription ? (
+                <>
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" />
+                  </svg>
+                  Auto fill
+                </>
+              )}
+            </button>
+          </div>
 
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[150px]">
