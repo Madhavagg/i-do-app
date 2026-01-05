@@ -1,0 +1,43 @@
+{
+  "name": "ido-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for I do - manage your tasks from Claude Desktop, Cursor, and other AI assistants",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "ido-mcp": "./dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/ai-todo-app"
+  },
+  "homepage": "https://transferme-gohighlevel.uk/docs/mcp-setup",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "inspect": "npx @modelcontextprotocol/inspector tsx src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "todo",
+    "tasks",
+    "claude",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

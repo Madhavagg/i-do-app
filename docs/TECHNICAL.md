@@ -665,3 +665,172 @@ The application handles missing configurations gracefully:
 3. **Password Requirements**: Enforced client and server side
 4. **Session Management**: HTTP-only cookies, automatic refresh
 5. **Input Validation**: All API inputs validated before processing
+
+---
+
+## MCP Server Integration
+
+### Overview
+
+The MCP (Model Context Protocol) server allows external AI assistants like Claude Desktop, Cursor, and ChatGPT to manage tasks in the todo app. The MCP server is a standalone Node.js application that communicates with the Next.js API.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AI Assistant (Claude Desktop/Cursor)          │
+│                                                                  │
+│   "Create a task to buy groceries tomorrow, high priority"      │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ MCP Protocol (stdio)
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       MCP Server (Node.js)                       │
+│                                                                  │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│   │ create_task │  │ list_tasks  │  │     complete_task       │ │
+│   └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘ │
+│          │                │                     │               │
+│          └────────────────┴─────────────────────┘               │
+│                           │                                      │
+│              HTTP API calls with Bearer token                    │
+└───────────────────────────┼─────────────────────────────────────┘
+                            │ HTTPS (IDO_API_KEY as Bearer token)
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                 Next.js API (/api/mcp/tasks)                     │
+│                                                                  │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │ API Key Validation (SHA-256 hash lookup in api_keys)     │  │
+│   └──────────────────────────┬───────────────────────────────┘  │
+│                              │                                   │
+│                   Supabase Service Role Client                   │
+│                              │                                   │
+│   ┌──────────────────┐    ┌──┴───────────────────────────────┐  │
+│   │   api_keys       │    │          tasks                   │  │
+│   │   (auth lookup)  │    │   (user_id filtered queries)    │  │
+│   └──────────────────┘    └──────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### MCP Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `create_task` | Create a new task | `title` (req), `description`, `due_date`, `priority`, `category` |
+| `list_tasks` | List tasks with filters | `status`, `priority`, `category`, `limit` |
+| `complete_task` | Mark task complete/incomplete | `task_id` (req), `completed` |
+
+### API Keys Table Schema
+
+```sql
+CREATE TABLE api_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  key_hash TEXT NOT NULL UNIQUE,     -- SHA-256 hash
+  key_prefix TEXT NOT NULL,           -- "mcp_abc1" for identification
+  name TEXT NOT NULL DEFAULT 'Default',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  last_used_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true
+);
+```
+
+### Authentication Flow
+
+1. User generates API key in Settings → MCP Integration (format: `mcp_{userId8chars}_{random32hex}`)
+2. Key hash (SHA-256) stored in `api_keys` table; raw key shown once
+3. User configures MCP server with `IDO_API_KEY` environment variable
+4. MCP server makes HTTP requests to `/api/mcp/tasks` with `Authorization: Bearer {key}`
+5. Next.js API validates key by hashing and looking up in `api_keys` table
+6. On valid key, API queries tasks filtered by `user_id` using Supabase service role client
+
+### File Structure
+
+```
+mcp-server/
+├── src/
+│   └── index.ts           # MCP server entry point (tools + HTTP client)
+├── dist/
+│   └── index.js           # Compiled output
+├── package.json
+├── tsconfig.json
+├── .env.example
+└── README.md
+
+app/api/mcp/
+├── tasks/
+│   └── route.ts           # GET (list), POST (create), PATCH (complete)
+└── keys/
+    └── route.ts           # API key management (GET, POST, DELETE)
+```
+
+### AI Assistant Configuration
+
+#### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "ido-todo": {
+      "command": "npx",
+      "args": ["-y", "ido-mcp"],
+      "env": {
+        "IDO_API_KEY": "mcp_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+#### Cursor
+
+Edit `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "ido-todo": {
+      "command": "npx",
+      "args": ["-y", "ido-mcp"],
+      "env": {
+        "IDO_API_KEY": "mcp_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+#### Local Development
+
+For testing against a local server, use:
+
+```json
+{
+  "mcpServers": {
+    "ido-todo": {
+      "command": "node",
+      "args": ["/path/to/ai-todo-app/mcp-server/dist/index.js"],
+      "env": {
+        "IDO_API_KEY": "mcp_your_api_key_here",
+        "IDO_API_URL": "http://localhost:3000"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `IDO_API_KEY` | Yes | API key generated from Settings → MCP Integration |
+| `IDO_API_URL` | No | Defaults to `https://transferme-gohighlevel.uk`. Set to `http://localhost:3000` for local development |
+
+### Security Considerations
+
+1. **API Key Only**: Users only need their API key; Supabase credentials stay server-side
+2. **API Key Hashing**: Keys stored as SHA-256 hashes in database
+3. **Service Role Key**: Used server-side only in Next.js API (never exposed to MCP clients)
+4. **User Isolation**: All queries explicitly filter by `user_id`
+5. **Key Management**: Users can delete/regenerate keys via Settings page

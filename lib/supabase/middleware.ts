@@ -42,6 +42,8 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
   const isCallbackRoute = request.nextUrl.pathname === '/auth/callback'
   const isResetPasswordRoute = request.nextUrl.pathname === '/auth/reset-password'
+  const isDocsRoute = request.nextUrl.pathname.startsWith('/docs')
+  const isMcpApiRoute = request.nextUrl.pathname.startsWith('/api/mcp')
 
   // Allow callback route without session
   if (isCallbackRoute) {
@@ -50,6 +52,16 @@ export async function updateSession(request: NextRequest) {
 
   // Allow reset-password page even when authenticated (for password recovery flow)
   if (isResetPasswordRoute) {
+    return supabaseResponse
+  }
+
+  // Allow docs pages without authentication (public documentation)
+  if (isDocsRoute) {
+    return supabaseResponse
+  }
+
+  // Allow MCP API routes (they use API key authentication, not session)
+  if (isMcpApiRoute) {
     return supabaseResponse
   }
 
